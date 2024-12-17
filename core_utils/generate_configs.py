@@ -64,7 +64,7 @@ class ConfigTemplate():
                             file_format = file_format,
                             file_schema = mirror_schema,
                             file_name_pattern = "datetime_pattern.csv",
-                            file_path = f"/datasets/{dataset_name}",
+                            file_path = f"datasets/{dataset_name}",
                             datetime_pattern =  self.datetime_format)
 
         write_to_json_file(data=ds_mirror_v1_configs.__dict__, file_path=dataset_configs_mirror_v1_path)
