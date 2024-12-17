@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 import os
 
 setup(
-    name="custom_utils",  # Replace with your project name
+    name="core_utils",  # Replace with your project name
     version="1.0.0",
     author="ram posam",
     author_email="posamram@gmail.com",
-    description="file custom utils",
+    description="Core utils",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     url="https://rposam-devops@dev.azure.com/rposam-devops/devops-project/_git/custom_utils",
