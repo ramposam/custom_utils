@@ -134,7 +134,7 @@ with DAG(
 
         dag_data = self.generate_dag(dataset_configs, dag_template)
 
-        dag_gen_dir = os.path.join(os.getcwd(), "generated_dags_ddls")
+        dag_gen_dir = os.path.join(self.configs_dir, "generated_dags_ddls")
         Path(dag_gen_dir).mkdir(parents=True, exist_ok=True)
 
         write_to_file(dag_data, os.path.join(dag_gen_dir, dataset_name + "_dag.py"))
