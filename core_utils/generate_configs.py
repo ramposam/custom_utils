@@ -1,18 +1,22 @@
 import os
 
-from core_utils.file_utils import read_and_infer, write_to_json_file
+from core_utils.file_utils import read_and_infer, write_to_json_file, write_to_file
+from core_utils.generate_snowflake_pipeline import SnowflakePipeline
 from core_utils.meta_classes import DatasetConfigs, DatasetVersion, DatasetMirror, DatasetStage
 from pathlib import Path
 
 
 class ConfigTemplate():
-    def __init__(self, bucket, dataset_name, file_path, start_date, datetime_format, catchup=False):
-        self.file_path = file_path
-        self.dataset_name = dataset_name
+    def __init__(self, bucket,**kwargs):
+        self.file_path = kwargs.get("file_path")
+        self.pipeline_type = kwargs.get("pipeline_type")
+        self.dataset_name = kwargs.get("dataset_name")
         self.bucket = bucket
-        self.start_date = start_date
-        self.datetime_format = datetime_format
-        self.catchup = catchup
+        self.dataset_dir = kwargs.get("dataset_dir")
+        self.start_date = kwargs.get("start_date")
+        self.datetime_format = kwargs.get("datetime_format")
+        self.catchup = kwargs.get("catchup")
+        self.schedule_interval = kwargs.get("schedule_interval")
 
     def add_meta_cols(self, schema, layer):
         if layer == "MIRROR":
@@ -60,69 +64,89 @@ class ConfigTemplate():
         dataset_dir = os.path.join(configs_root_dir, dataset_name)
         Path(dataset_dir).mkdir(parents=True, exist_ok=True)
 
-        dataset_configs_path = os.path.join(dataset_dir, f"ds_{dataset_name}.json")
+        if self.pipeline_type == "SNOWPIPE":
+            file_extension = os.path.basename(self.file_path).split(".")[-1]
 
-        if len(dataset_configs_path) > 255:
-            dataset_configs_path = r'\\?\{}'.format(dataset_configs_path)
+            pipeline = SnowflakePipeline(bucket=self.bucket,aws_access_key=None,
+                              aws_secret_key=None,dataset_dir=self.dataset_dir,
+                              dataset_name=self.dataset_name,file_extension=file_extension,
+                              delimiter=delimiter,mirror_schema=mirror_schema,
+                              stage_schema=stage_schema,schedule_interval = self.schedule_interval)
 
-        ds_configs = DatasetConfigs(dataset_name=dataset_name, bucket=self.bucket,
-                                    start_date=self.start_date, load_historical_data=self.catchup,
-                                    snowflake_stage_name=f"STG_{dataset_name}".upper())
+            pipeline_sqls = pipeline.get_all_sqls()
 
-        write_to_json_file(data=ds_configs.__dict__, file_path=dataset_configs_path)
+            pipeline_sqls_path = os.path.join(dataset_dir, f"pipeline_{dataset_name}.sql")
 
-        dataset_mirror_dir = os.path.join(dataset_dir, "mirror")
-        Path(dataset_mirror_dir).mkdir(parents=True, exist_ok=True)
+            if len(pipeline_sqls_path) > 255:
+                pipeline_sqls_path = r'\\?\{}'.format(pipeline_sqls_path)
 
-        dataset_configs_mirror_ver_path = os.path.join(dataset_mirror_dir, f"ds_{dataset_name}_mirror_ver.json")
+            write_to_file(data=pipeline_sqls, file_path=pipeline_sqls_path)
 
-        if len(dataset_configs_mirror_ver_path) > 255:
-            dataset_configs_mirror_ver_path = r'\\?\{}'.format(dataset_configs_mirror_ver_path)
 
-        ds_mirror_ver_configs = DatasetVersion(dataset_name=dataset_name)
+        else:
+            dataset_configs_path = os.path.join(dataset_dir, f"ds_{dataset_name}.json")
 
-        write_to_json_file(data=ds_mirror_ver_configs.__dict__, file_path=dataset_configs_mirror_ver_path)
+            if len(dataset_configs_path) > 255:
+                dataset_configs_path = r'\\?\{}'.format(dataset_configs_path)
 
-        file_format = {
-            "delimiter": delimiter,
-            "skip_header": 1,
-            "compressed": True
-        }
-        dataset_configs_mirror_v1_path = os.path.join(dataset_mirror_dir, f"ds_{dataset_name}_mirror_v1.json")
+            ds_configs = DatasetConfigs(dataset_name=dataset_name, bucket=self.bucket,
+                                        start_date=self.start_date, load_historical_data=self.catchup,
+                                        snowflake_stage_name=f"STG_{dataset_name}".upper())
 
-        if len(dataset_configs_mirror_v1_path) > 255:
-            dataset_configs_mirror_v1_path = r'\\?\{}'.format(dataset_configs_mirror_v1_path)
+            write_to_json_file(data=ds_configs.__dict__, file_path=dataset_configs_path)
 
-        ds_mirror_v1_configs = DatasetMirror(table_name=f"T_ML_{dataset_name}".upper(),
-                                             table_schema=mirror_schema,
-                                             file_format=file_format,
-                                             file_schema=mirror_schema,
-                                             file_name_pattern="datetime_pattern.csv",
-                                             file_path=f"datasets/{dataset_name}",
-                                             datetime_pattern=self.datetime_format)
+            dataset_mirror_dir = os.path.join(dataset_dir, "mirror")
+            Path(dataset_mirror_dir).mkdir(parents=True, exist_ok=True)
 
-        write_to_json_file(data=ds_mirror_v1_configs.__dict__, file_path=dataset_configs_mirror_v1_path)
+            dataset_configs_mirror_ver_path = os.path.join(dataset_mirror_dir, f"ds_{dataset_name}_mirror_ver.json")
 
-        dataset_stg_dir = os.path.join(dataset_dir, "stage")
-        Path(dataset_stg_dir).mkdir(parents=True, exist_ok=True)
+            if len(dataset_configs_mirror_ver_path) > 255:
+                dataset_configs_mirror_ver_path = r'\\?\{}'.format(dataset_configs_mirror_ver_path)
 
-        dataset_configs_stage_ver_path = os.path.join(dataset_stg_dir, f"ds_{dataset_name}_stage_ver.json")
+            ds_mirror_ver_configs = DatasetVersion(dataset_name=dataset_name)
 
-        if len(dataset_configs_stage_ver_path) > 255:
-            dataset_configs_stage_ver_path = r'\\?\{}'.format(dataset_configs_stage_ver_path)
+            write_to_json_file(data=ds_mirror_ver_configs.__dict__, file_path=dataset_configs_mirror_ver_path)
 
-        ds_stage_ver_configs = DatasetVersion(dataset_name=dataset_name)
+            file_format = {
+                "delimiter": delimiter,
+                "skip_header": 1,
+                "compressed": True
+            }
+            dataset_configs_mirror_v1_path = os.path.join(dataset_mirror_dir, f"ds_{dataset_name}_mirror_v1.json")
 
-        write_to_json_file(data=ds_stage_ver_configs.__dict__, file_path=dataset_configs_stage_ver_path)
+            if len(dataset_configs_mirror_v1_path) > 255:
+                dataset_configs_mirror_v1_path = r'\\?\{}'.format(dataset_configs_mirror_v1_path)
 
-        dataset_configs_stage_v1_path = os.path.join(dataset_stg_dir, f"ds_{dataset_name}_stage_v1.json")
+            ds_mirror_v1_configs = DatasetMirror(table_name=f"T_ML_{dataset_name}".upper(),
+                                                 table_schema=mirror_schema,
+                                                 file_format=file_format,
+                                                 file_schema=mirror_schema,
+                                                 file_name_pattern="datetime_pattern.csv",
+                                                 file_path=f"datasets/{dataset_name}",
+                                                 datetime_pattern=self.datetime_format)
 
-        if len(dataset_configs_stage_v1_path) > 255:
-            dataset_configs_stage_v1_path = r'\\?\{}'.format(dataset_configs_stage_v1_path)
+            write_to_json_file(data=ds_mirror_v1_configs.__dict__, file_path=dataset_configs_mirror_v1_path)
 
-        ds_stage_v1_configs = DatasetStage(table_name=f"T_STG_{dataset_name}".upper(),
-                                           table_schema=stage_schema)
+            dataset_stg_dir = os.path.join(dataset_dir, "stage")
+            Path(dataset_stg_dir).mkdir(parents=True, exist_ok=True)
 
-        write_to_json_file(data=ds_stage_v1_configs.__dict__, file_path=dataset_configs_stage_v1_path)
+            dataset_configs_stage_ver_path = os.path.join(dataset_stg_dir, f"ds_{dataset_name}_stage_ver.json")
+
+            if len(dataset_configs_stage_ver_path) > 255:
+                dataset_configs_stage_ver_path = r'\\?\{}'.format(dataset_configs_stage_ver_path)
+
+            ds_stage_ver_configs = DatasetVersion(dataset_name=dataset_name)
+
+            write_to_json_file(data=ds_stage_ver_configs.__dict__, file_path=dataset_configs_stage_ver_path)
+
+            dataset_configs_stage_v1_path = os.path.join(dataset_stg_dir, f"ds_{dataset_name}_stage_v1.json")
+
+            if len(dataset_configs_stage_v1_path) > 255:
+                dataset_configs_stage_v1_path = r'\\?\{}'.format(dataset_configs_stage_v1_path)
+
+            ds_stage_v1_configs = DatasetStage(table_name=f"T_STG_{dataset_name}".upper(),
+                                               table_schema=stage_schema)
+
+            write_to_json_file(data=ds_stage_v1_configs.__dict__, file_path=dataset_configs_stage_v1_path)
 
         return configs_root_dir
