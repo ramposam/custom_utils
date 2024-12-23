@@ -12,27 +12,30 @@ class ConfigTemplate():
         self.pipeline_type = kwargs.get("pipeline_type")
         self.dataset_name = kwargs.get("dataset_name")
         self.bucket = bucket
-        self.dataset_dir = kwargs.get("dataset_dir")
+        self.s3_dataset_path = kwargs.get("s3_dataset_path")
         self.start_date = kwargs.get("start_date")
         self.datetime_format = kwargs.get("datetime_format")
         self.catchup = kwargs.get("catchup")
         self.schedule_interval = kwargs.get("schedule_interval")
+        self.aws_access_key = kwargs.get("aws_access_key")
+        self.aws_secret_key = kwargs.get("aws_secret_key")
+        self.snowflake_stage_name = kwargs.get("snowflake_stage_name")
 
     def add_meta_cols(self, schema, layer):
         if layer == "MIRROR":
             schema["filename"] = "STRING"
             schema["file_row_number"] = "STRING"
-            schema["file_last_modified"] = "DATE"
-            schema["created_dts"] = "DATE"
+            schema["file_last_modified"] = "TIMESTAMP"
+            schema["created_dts"] = "TIMESTAMP"
             schema["created_by"] = "STRING"
         else:
-            schema["created_dts"] = "DATE"
+            schema["created_dts"] = "TIMESTAMP"
             schema["created_by"] = "STRING"
-            schema["updated_dts"] = "DATE"
+            schema["updated_dts"] = "TIMESTAMP"
             schema["updated_by"] = "STRING"
             schema["active_fl"] = "STRING"
-            schema["effective_start_date"] = "DATE"
-            schema["effective_end_date"] = "DATE"
+            schema["effective_start_date"] = "TIMESTAMP"
+            schema["effective_end_date"] = "TIMESTAMP"
             schema["row_hash_id"] = "STRING"
         return schema
 
@@ -40,14 +43,18 @@ class ConfigTemplate():
         schema = {}
         for col_name in columns:
             schema[col_name.replace(" ", "_").upper()] = "STRING"
+
         mirror_schema = self.add_meta_cols(schema, "MIRROR")
+
         return mirror_schema
 
     def get_stage_schema(self, data_types):
         schema = {}
         for col_name, col_dtypes in data_types.items():
             schema[col_name.replace(" ", "_").upper()] = col_dtypes["snowflake_dtype"]
+
         stage_schema = self.add_meta_cols(schema, "STAGE")
+
         return stage_schema
 
     def generate_configs(self, configs_tmp_dir):
@@ -61,21 +68,22 @@ class ConfigTemplate():
         configs_root_dir = os.path.join(configs_tmp_dir, "generated_configs")
         Path(configs_root_dir).mkdir(parents=True, exist_ok=True)
 
-        dataset_dir = os.path.join(configs_root_dir, dataset_name)
-        Path(dataset_dir).mkdir(parents=True, exist_ok=True)
+        configs_dataset_dir = os.path.join(configs_root_dir, dataset_name)
+        Path(configs_dataset_dir).mkdir(parents=True, exist_ok=True)
 
         if self.pipeline_type == "SNOWPIPE":
             file_extension = os.path.basename(self.file_path).split(".")[-1]
 
-            pipeline = SnowflakePipeline(bucket=self.bucket,aws_access_key=None,
-                              aws_secret_key=None,dataset_dir=self.dataset_dir,
+            pipeline = SnowflakePipeline(bucket=self.bucket,s3_dataset_path=self.s3_dataset_path,
                               dataset_name=self.dataset_name,file_extension=file_extension,
                               delimiter=delimiter,mirror_schema=mirror_schema,
-                              stage_schema=stage_schema,schedule_interval = self.schedule_interval)
+                              aws_access_key = self.aws_access_key, aws_secret_key =self.aws_secret_key,
+                              stage_schema=stage_schema,schedule_interval = self.schedule_interval,
+                              snowflake_stage_name=self.snowflake_stage_name)
 
             pipeline_sqls = pipeline.get_all_sqls()
 
-            pipeline_sqls_path = os.path.join(dataset_dir, f"pipeline_{dataset_name}.sql")
+            pipeline_sqls_path = os.path.join(configs_dataset_dir, f"pipeline_{dataset_name}.sql")
 
             if len(pipeline_sqls_path) > 255:
                 pipeline_sqls_path = r'\\?\{}'.format(pipeline_sqls_path)
@@ -84,7 +92,7 @@ class ConfigTemplate():
 
 
         else:
-            dataset_configs_path = os.path.join(dataset_dir, f"ds_{dataset_name}.json")
+            dataset_configs_path = os.path.join(configs_dataset_dir, f"ds_{dataset_name}.json")
 
             if len(dataset_configs_path) > 255:
                 dataset_configs_path = r'\\?\{}'.format(dataset_configs_path)
@@ -95,7 +103,7 @@ class ConfigTemplate():
 
             write_to_json_file(data=ds_configs.__dict__, file_path=dataset_configs_path)
 
-            dataset_mirror_dir = os.path.join(dataset_dir, "mirror")
+            dataset_mirror_dir = os.path.join(configs_dataset_dir, "mirror")
             Path(dataset_mirror_dir).mkdir(parents=True, exist_ok=True)
 
             dataset_configs_mirror_ver_path = os.path.join(dataset_mirror_dir, f"ds_{dataset_name}_mirror_ver.json")
@@ -127,7 +135,7 @@ class ConfigTemplate():
 
             write_to_json_file(data=ds_mirror_v1_configs.__dict__, file_path=dataset_configs_mirror_v1_path)
 
-            dataset_stg_dir = os.path.join(dataset_dir, "stage")
+            dataset_stg_dir = os.path.join(configs_dataset_dir, "stage")
             Path(dataset_stg_dir).mkdir(parents=True, exist_ok=True)
 
             dataset_configs_stage_ver_path = os.path.join(dataset_stg_dir, f"ds_{dataset_name}_stage_ver.json")
