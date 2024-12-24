@@ -75,7 +75,7 @@ class DBTMirrorModel():
                                       "config": {"tags": [f"{dataset_name}-mirror",
                                                           dataset_name]}}]}
 
-        unique_table_level_column_tests = " || - || ".join(unique_keys)
+        unique_table_level_column_tests = " || '-' || ".join(unique_keys)
         mirror_template["models"][0].update({"tests": [{"unique": {"column_name": unique_table_level_column_tests,
                                                                 "name": f"""{dataset_name}_{mirror_table}_unique""".upper(),
                                                                 "config": {"severity": "WARN",
