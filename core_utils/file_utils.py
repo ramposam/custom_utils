@@ -61,6 +61,20 @@ def read_and_infer(file_path):
 
     return delimiter, header, data_types
 
+def get_unique_keys(file_path,delimiter,header_line,num_rows=5000):
+
+    df = pd.read_csv(file_path, sep=delimiter,header=header_line-1, nrows=num_rows)
+
+    unique_columns = []
+    for (col, dtype) in df.dtypes.items():
+        unique_columns.append(col)
+        max_value = df.value_counts(unique_columns,dropna=False).max()
+        if max_value==1:
+            break
+
+    unique_keys = [col.replace(" ", "_").upper() for col in unique_columns]
+
+    return unique_keys
 
 def write_to_json_file(data, file_path):
     """

@@ -25,6 +25,7 @@ class DatasetConfigs:
 class DatasetVersion:
     dataset_name: str
     versions: List[Dict] = field(default_factory=lambda: [{
+        "version": "v1",
         "start_date": "2021-01-01",
         "end_date": "9999-12-31"}])
 
@@ -33,6 +34,7 @@ class DatasetVersion:
 class DatasetMirror:
     table_name: str
     table_schema: Dict
+    unique_keys: List
     file_format: Dict
     file_schema: Dict
     file_name_pattern: str
@@ -44,5 +46,6 @@ class DatasetMirror:
 class DatasetStage:
     table_name: str
     table_schema: Dict
+    unique_keys: List
     transformations: List[Dict] = field(default_factory=lambda: [{"name": "select_expr",
                                                                   "expr": ["*"]}])

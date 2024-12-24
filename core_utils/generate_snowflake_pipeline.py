@@ -33,7 +33,9 @@ class SnowflakePipeline():
         return snowflake_pipe_sql
 
     def get_stream_sql(self, stream_name, table_name):
-        stream_sql = f"""CREATE OR REPLACE STREAM {stream_name} ON TABLE {table_name} append_only = true;"""
+        stream_sql = f"""CREATE OR REPLACE STREAM {stream_name} ON TABLE {table_name}
+         append_only = true; 
+         """
         return stream_sql
 
     def get_task_sql(self, stream_name, task_name, table_name):
@@ -42,15 +44,14 @@ class SnowflakePipeline():
             WAREHOUSE = '{self.warehouse}'
             -- without condition, always try to execute the task
             WHEN
-             SYSTEM$STREAM_HAS_DATA({stream_name}) -- skips when stream has no data
+             SYSTEM$STREAM_HAS_DATA('{stream_name}') -- skips when stream has no data
             AS
             -- you could write merge statement incase you wanted upsert target, src as stream
             INSERT INTO {table_name}
             SELECT *  exclude (METADATA$ACTION,METADATA$ISUPDATE,METADATA$ROW_ID)
-            FROM {stream_name};
+            FROM {stream_name}; \n ALTER TASK {task_name} RESUME;
+        """
 
-            ALTER TASK {task_name} RESUME;
-            """
         return task_sql
 
     def get_all_sqls(self):
@@ -58,10 +59,12 @@ class SnowflakePipeline():
         dataset_name_upper = self.dataset_name.upper()
         mirror_tr_table_name = f"MIRROR_DB.MIRROR.T_ML_{dataset_name_upper}_TR"
         file_format_name = f"MIRROR_DB.MIRROR.FF_{dataset_name_upper}"
-        stream_name = f"MIRROR_DB.MIRROR.STREAM_{dataset_name_upper}"
-        task_name = f"MIRROR_DB.MIRROR.TASK_{dataset_name_upper}"
+        mirror_stream_name = f"MIRROR_DB.MIRROR.STREAM_{dataset_name_upper}"
+        mirror_task_name = f"MIRROR_DB.MIRROR.TASK_{dataset_name_upper}"
         mirror_table_name = f"MIRROR_DB.MIRROR.T_ML_{dataset_name_upper}"
         stg_table_name = f"STAGE_DB.STAGE.T_STG_{dataset_name_upper}"
+        stg_stream_name = f"STAGE_DB.STAGE.STREAM_{dataset_name_upper}"
+        stg_task_name = f"STAGE_DB.STAGE.TASK_{dataset_name_upper}"
 
 
         if self.aws_access_key and self.aws_secret_key:
@@ -93,12 +96,17 @@ class SnowflakePipeline():
 
         snowpipe_sql = self.get_snowpipe_sql(copy_statement)
 
-        stream_sql = self.get_stream_sql(stream_name=stream_name, table_name=mirror_tr_table_name)
+        mirror_stream_sql = self.get_stream_sql(stream_name=mirror_stream_name, table_name=mirror_tr_table_name)
 
-        task_sql = self.get_task_sql(stream_name=stream_name, task_name=task_name, table_name=mirror_table_name)
+        mirror_task_sql = self.get_task_sql(stream_name=mirror_stream_name, task_name=mirror_task_name, table_name=mirror_table_name)
+
+        stage_stream_sql = self.get_stream_sql(stream_name=stg_stream_name, table_name=mirror_table_name)
+
+        stage_task_sql = self.get_task_sql(stream_name=stg_stream_name, task_name=stg_task_name, table_name=stg_table_name)
 
         all_sqls = "\n".join([mirror_tr_table_sql,mirror_table_sql,stage_table_sql,
-                              stage_sql, file_format_sql, snowpipe_sql, stream_sql, task_sql])
+                              stage_sql, file_format_sql, snowpipe_sql, mirror_stream_sql,
+                              mirror_task_sql,stage_stream_sql,stage_task_sql])
 
         return all_sqls
 

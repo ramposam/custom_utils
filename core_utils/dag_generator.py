@@ -144,9 +144,13 @@ with DAG(
         table_name, table_schema = dataset_configs["mirror"]["v1"]["table_name"], dataset_configs["mirror"]["v1"][
             "table_schema"]
 
-        mirror_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name, table_schema)
+        mirror_tr_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name, table_schema)
 
-        write_to_file(mirror_ddls, os.path.join(dag_gen_dir, table_name + ".sql"))
+        write_to_file(mirror_tr_ddls, os.path.join(dag_gen_dir, table_name + ".sql"))
+
+        mirror_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name[:-3], table_schema)
+
+        write_to_file(mirror_ddls, os.path.join(dag_gen_dir, table_name[:-3] + ".sql"))
 
         stage_db, stage_schema = dataset_configs["stage_layer"]["database"], dataset_configs["stage_layer"]["schema"]
         table_name, table_schema = dataset_configs["stage"]["v1"]["table_name"], dataset_configs["stage"]["v1"][
@@ -156,7 +160,7 @@ with DAG(
 
         write_to_file(stage_ddls, os.path.join(dag_gen_dir, table_name + ".sql"))
 
-        stage_sql = f"""CREATE OR REPLACE  STAGE {mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]}"""
+        stage_sql = f"""CREATE OR REPLACE  STAGE {mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]} ;"""
 
         write_to_file(stage_sql, os.path.join(dag_gen_dir, dataset_configs["snowflake_stage_name"] + ".sql"))
 
