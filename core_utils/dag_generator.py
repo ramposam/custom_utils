@@ -91,7 +91,7 @@ with DAG(
             task_id="copy_file_from_stage",
             snowflake_conn_id="{dataset_configs["snowflake_connection_id"]}",
             stage_name="{mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]}",
-            table_name="{mirror_db}.{mirror_schema}.{dataset_configs["mirror"]["v1"]["table_name"]}"
+            table_name="{mirror_db}.{mirror_schema}.{dataset_configs["mirror"]["v1"]["table_name"]}_TR"
         )
             """
 
