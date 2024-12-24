@@ -36,7 +36,7 @@ class DBTMirrorModel():
     )
 
     SELECT *
-    FROM {dataset_name};
+    FROM {dataset_name}
     """
             # Write the SQL content to the output file
             with open(model_path, 'w', encoding='utf-8') as sql_file:
@@ -71,37 +71,37 @@ class DBTMirrorModel():
 
         mirror_template = {"name": dataset_name,
                            "version": 2,
-                           "models": {"name": mirror_table,
+                           "models": [{"name": mirror_table,
                                       "config": {"tags": [f"{dataset_name}-mirror",
-                                                          dataset_name]}}}
+                                                          dataset_name]}}]}
 
         unique_table_level_column_tests = " || - || ".join(unique_keys)
-        mirror_template["models"].update({"tests": [{"unique": {"column_name": unique_table_level_column_tests,
+        mirror_template["models"][0].update({"tests": [{"unique": {"column_name": unique_table_level_column_tests,
                                                                 "name": f"""{dataset_name}_{mirror_table}_unique""".upper(),
                                                                 "config": {"severity": "WARN",
-                                                                           "where": """file_date = '{{var("run_date")'"""}}}]})
+                                                                           "where": """file_date = '{{ var("run_date") }}'"""}}}]})
 
         columns_test = []
         for column in unique_keys:
             columns_test.append({"name": column,
                                  "tests": [{"not_null": {"name": f"""{mirror_table}_{column}_not_null""".upper(),
                                                          "config": {"severity": "WARN",
-                                                                    "where": """file_date = '{{var("run_date")'"""}}}]})
+                                                                    "where": """file_date = '{{ var("run_date") }}'"""}}}]})
 
-        mirror_template["models"].update({"columns": columns_test})
+        mirror_template["models"][0].update({"columns": columns_test})
         return mirror_template
 
     def get_sources_yml(self,dataset_name,table_name):
         source_template = {"name": dataset_name,
                            "version": 2,
-                           "sources": {"name": dataset_name,
+                           "sources": [{"name": dataset_name,
                                        "database": "MIRROR_DB",
                                       "schema": "MIRROR",
                                        "tables":[{"name": table_name,
                                                   "config": {"tags": [
                                                       f"{dataset_name}-src",
                                                       dataset_name]}
-                                                  }]}}
+                                                  }]}]}
 
         return source_template
 
