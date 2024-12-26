@@ -10,8 +10,10 @@ class DatasetConfigs:
     tasks: List[str] = field(
         default_factory=lambda: ["acq_task",
                                  "download_task",
-                                 "load_task",
-                                 "copy_task"])
+                                 "move_task",
+                                 "schema_check_task",
+                                 "copy_task",
+                                 "mirror_task"])
     mirror_layer: Dict = field(default_factory=lambda: {"database": "MIRROR_DB", "schema": "MIRROR"})
     stage_layer: Dict = field(default_factory=lambda: {"database": "STAGE_DB", "schema": "STAGE"})
     s3_connection_id: str = field(default="S3_CONN_ID")
@@ -35,7 +37,7 @@ class DatasetMirror:
     table_name: str
     table_schema: Dict
     unique_keys: List
-    file_format: Dict
+    file_format_params: Dict
     file_schema: Dict
     file_name_pattern: str
     file_path: str

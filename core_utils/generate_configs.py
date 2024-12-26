@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class ConfigTemplate():
-    def __init__(self, bucket,**kwargs):
+    def __init__(self, bucket, **kwargs):
         self.file_path = kwargs.get("file_path")
         self.pipeline_type = kwargs.get("pipeline_type")
         self.dataset_name = kwargs.get("dataset_name")
@@ -39,14 +39,16 @@ class ConfigTemplate():
             schema["row_hash_id"] = "STRING"
         return schema
 
-    def get_mirror_schema(self, columns):
+    def get_mirror_schema(self, schema):
+        mirror_schema = self.add_meta_cols(schema.copy(), "MIRROR")
+
+        return mirror_schema
+
+    def get_file_schema(self, columns):
         schema = {}
         for col_name in columns:
             schema[col_name.replace(" ", "_").upper()] = "STRING"
-
-        mirror_schema = self.add_meta_cols(schema, "MIRROR")
-
-        return mirror_schema
+        return schema
 
     def get_stage_schema(self, data_types):
         schema = {}
@@ -61,9 +63,12 @@ class ConfigTemplate():
 
         delimiter, columns, data_types = read_and_infer(self.file_path)
 
-        unique_keys = get_unique_keys(self.file_path,delimiter,1)
+        unique_keys = get_unique_keys(self.file_path, delimiter, 1)
 
-        mirror_schema = self.get_mirror_schema(data_types)
+        file_schema = self.get_file_schema(data_types)
+
+        print(file_schema)
+        mirror_schema = self.get_mirror_schema(file_schema)
         stage_schema = self.get_stage_schema(data_types)
 
         dataset_name = self.dataset_name  # os.path.basename(os.path.dirname(self.file_path))
@@ -77,12 +82,12 @@ class ConfigTemplate():
         if self.pipeline_type == "SNOWPIPE":
             file_extension = os.path.basename(self.file_path).split(".")[-1]
 
-            pipeline = SnowflakePipeline(bucket=self.bucket,s3_dataset_path=self.s3_dataset_path,
-                              dataset_name=self.dataset_name,file_extension=file_extension,
-                              delimiter=delimiter,mirror_schema=mirror_schema,
-                              aws_access_key = self.aws_access_key, aws_secret_key =self.aws_secret_key,
-                              stage_schema=stage_schema,schedule_interval = self.schedule_interval,
-                              snowflake_stage_name=self.snowflake_stage_name)
+            pipeline = SnowflakePipeline(bucket=self.bucket, s3_dataset_path=self.s3_dataset_path,
+                                         dataset_name=self.dataset_name, file_extension=file_extension,
+                                         delimiter=delimiter, mirror_schema=mirror_schema,
+                                         aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key,
+                                         stage_schema=stage_schema, schedule_interval=self.schedule_interval,
+                                         snowflake_stage_name=self.snowflake_stage_name)
 
             pipeline_sqls = pipeline.get_all_sqls()
 
@@ -131,8 +136,8 @@ class ConfigTemplate():
             ds_mirror_v1_configs = DatasetMirror(table_name=f"T_ML_{dataset_name}".upper(),
                                                  table_schema=mirror_schema,
                                                  unique_keys=unique_keys,
-                                                 file_format=file_format,
-                                                 file_schema=mirror_schema,
+                                                 file_format_params=file_format,
+                                                 file_schema=file_schema,
                                                  file_name_pattern="datetime_pattern.csv",
                                                  file_path=f"datasets/{dataset_name}",
                                                  datetime_pattern=self.datetime_format)
@@ -158,7 +163,7 @@ class ConfigTemplate():
 
             ds_stage_v1_configs = DatasetStage(table_name=f"T_STG_{dataset_name}".upper(),
                                                table_schema=stage_schema,
-                                               unique_keys=unique_keys,)
+                                               unique_keys=unique_keys, )
 
             write_to_json_file(data=ds_stage_v1_configs.__dict__, file_path=dataset_configs_stage_v1_path)
 

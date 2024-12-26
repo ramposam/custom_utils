@@ -9,18 +9,6 @@ class SnowflakeUtils:
         self.stage_name = stage_name
         self.table_name = table_name
 
-    def get_snowflake_stg_file_details(self):
-        list_files_query = f"list @{self.stage_name}"
-        with self.sf_conn.cursor() as cur:
-            cur.execute(list_files_query)
-            result = cur.fetchall()
-            stage_file_name = result[0][0].split("/")[-1]
-            file_name = stage_file_name.replace(".gz", "") if stage_file_name.endswith(".gz") else stage_file_name
-            db_schema = ".".join(self.table_name.split(".")[:-1])
-            file_format = f"""{db_schema}.ff_{self.stage_name.split(".")[-1][4:].lower().split('.')[0]}"""
-            compression = "gzip" if stage_file_name != "csv" else "NONE"
-            logging.info(f"Stage file:{stage_file_name}, file_format:{file_format},file_compression_type:{compression}")
-        return stage_file_name,file_format,compression
 
     def get_file_format_sql(self,file_format_name, file_type="CSV", delimiter=",",skip_header=1, compression="NONE"):
         # Define the SQL command to create the file format
@@ -35,6 +23,7 @@ class SnowflakeUtils:
         DATE_FORMAT='YYYY-MM-DD',
         TIME_FORMAT=AUTO,
         TIMESTAMP_FORMAT=AUTO
+        ERROR_ON_COLUMN_COUNT_MISMATCH = TRUE
         COMPRESSION = {compression};
         """
         logging.info(f"File format sql: {file_format_sql}")

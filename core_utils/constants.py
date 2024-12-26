@@ -18,6 +18,26 @@ ALTER PIPE MIRROR_DB.MIRROR.PIPE_{dataset_name} REFRESH;
 -- Unless you create event notification, snowpipe is not going to copy data.
 select  SYSTEM$PIPE_STATUS('MIRROR_DB.MIRROR.PIPE_{dataset_name}');
 
+-- Creating table to log snowpipe failures
+CREATE TABLE IF NOT EXISTS MIRROR_DB.MIRROR.T_SNOWPIPE_ERRORS (
+    PIPE_NAME STRING,
+    FILE_NAME STRING,
+    ERROR_MESSAGE STRING,
+    TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Logging errors into a snowpipe error table, so that every pipeline status would be knowing.
+CREATE OR REPLACE TASK MIRROR_DB.MIRROR.TASK_LOG_SNOWPIPE_ERRORS
+SCHEDULE = '1 MINUTE'
+AS
+INSERT INTO MIRROR_DB.MIRROR.T_SNOWPIPE_ERRORS (PIPE_NAME, FILE_NAME, ERROR_MESSAGE)
+SELECT 
+    'PIPE_{dataset_name}' AS pipe_name,
+    FILE_NAME,
+    ERROR_MESSAGE
+FROM TABLE(INFORMATION_SCHEMA.LOAD_HISTORY_BY_PIPE('PIPE_{dataset_name}'))
+WHERE STATUS = 'LOAD_FAILED';
+
 """
 mirror_file_meta_cols = ["filename","file_row_number","file_last_modified"]
 mirror_meta_cols = ["created_dts","created_by"]

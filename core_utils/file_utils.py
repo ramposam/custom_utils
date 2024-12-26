@@ -101,3 +101,34 @@ def write_to_file(data, file_path):
         print(f"Data successfully written to {file_path}")
     except Exception as e:
         print(f"An error occurred: {e}")
+
+
+import re
+from datetime import datetime
+
+
+def identify_date_format(file_name):
+    # Define common date patterns and their formats
+    date_patterns = [
+        (r'\b(\d{4})-(\d{2})-(\d{2})\b', '%Y-%m-%d'),  # YYYY-MM-DD
+        (r'\b(\d{2})-(\d{2})-(\d{4})\b', '%m-%m-%Y'),  # MM-DD-YYYY
+        (r'\b(\d{2})-(\d{2})-(\d{4})\b', '%d-%m-%Y'),  # DD-MM-YYYY
+        (r'\b(\d{2})/(\d{2})/(\d{4})\b', '%d/%m/%Y'),  # DD/MM/YYYY
+        (r'\b(\d{2})/(\d{2})/(\d{4})\b', '%m/%d/%Y'),  # MM/DD/YYYY
+        (r'\b(\d{4})/(\d{2})/(\d{2})\b', '%Y/%m/%d'),  # YYYY/MM/DD
+        (r'\b(\d{4})(\d{2})(\d{2})\b', '%Y%m%d'),  # YYYYMMDD
+        (r'\b(\d{2})(\d{2})(\d{4})\b', '%d%m%Y'),  # DDMMYYYY
+        (r'\b(\d{2})(\d{2})(\d{4})\b', '%m%d%Y'),  # MMDDYYYY
+    ]
+
+    for pattern, date_format in date_patterns:
+        match = re.search(pattern, file_name)
+        if match:
+            try:
+                # Validate if the extracted string is a valid date
+                datetime.strptime(match.group(0), date_format)
+                return match.group(0), date_format
+            except ValueError:
+                continue
+
+    return None, None

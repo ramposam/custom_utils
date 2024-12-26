@@ -20,10 +20,14 @@ class DagGenerator():
                 dag_template += "from operators.acquisition_operator import AcquisitionOperator" + "\n"
             elif task == "download_task":
                 dag_template += "from operators.download_operator import DownloadOperator" + "\n"
-            elif task == "load_task":
-                dag_template += "from operators.load_operator import LoadOperator" + "\n"
+            elif task == "move_task":
+                dag_template += "from operators.move_file_to_snowflake_operator import MoveFileToSnowflakeOperator" + "\n"
             elif task == "copy_task":
                 dag_template += "from operators.snowflake_copy_operator import SnowflakeCopyOperator" + "\n"
+            elif task == "mirror_task":
+                dag_template += "from operators.mirror_load_operator import MirrorLoadOperator" + "\n"
+            elif task == "schema_check_task":
+                dag_template += "from operators.file_table_schema_check_operator import FileTableSchemaCheckOperator" + "\n"
 
         datetime_format = dataset_configs["mirror"]["v1"].get("datetime_pattern","").replace("YYYY", "%Y").replace("MM", "%m").replace( "DD", "%d")
 
@@ -77,21 +81,50 @@ with DAG(
             datetime_pattern="{datetime_format}"
         )
             """
-        if "load_task" in dataset_configs["tasks"]:
+        if "move_task" in dataset_configs["tasks"]:
             dag_template += f"""
-        load_task = LoadOperator(
+        move_task = MoveFileToSnowflakeOperator(
             task_id="move_file_to_snowflake",
             snowflake_conn_id="{dataset_configs["snowflake_connection_id"]}",
             stage_name="{mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]}"
         )
             """
+        if "schema_check_task" in dataset_configs["tasks"]:
+            dag_template += f"""
+        schema_check_task = FileTableSchemaCheckOperator(
+            task_id="check_file_table_schema",
+            snowflake_conn_id="{dataset_configs["snowflake_connection_id"]}",
+            s3_conn_id="{dataset_configs["s3_connection_id"]}",
+            bucket_name="{dataset_configs["bucket"]}",
+            s3_configs_path="dataset_configs/dev/",
+            dataset_name="{dataset_configs["dataset_name"]}",
+            stage_name="{mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]}",
+            table_name="{mirror_db}.{mirror_schema}.{dataset_configs["mirror"]["v1"]["table_name"]}_TR"
+        )
+            """
+
         if "copy_task" in dataset_configs["tasks"]:
             dag_template += f"""
         copy_task = SnowflakeCopyOperator(
             task_id="copy_file_from_stage",
             snowflake_conn_id="{dataset_configs["snowflake_connection_id"]}",
+            s3_conn_id="{dataset_configs["s3_connection_id"]}",
+            bucket_name="{dataset_configs["bucket"]}",
+            s3_configs_path="dataset_configs/dev/",
+            dataset_name="{dataset_configs["dataset_name"]}",
             stage_name="{mirror_db}.{mirror_schema}.{dataset_configs["snowflake_stage_name"]}",
             table_name="{mirror_db}.{mirror_schema}.{dataset_configs["mirror"]["v1"]["table_name"]}_TR"
+        )
+            """
+        if "mirror_task" in dataset_configs["tasks"]:
+            dag_template += f"""
+        mirror_task = MirrorLoadOperator(
+            task_id="load_to_mirror",
+            s3_conn_id="{dataset_configs["s3_connection_id"]}",
+            snowflake_conn_id="{dataset_configs["snowflake_connection_id"]}",
+            bucket_name="{dataset_configs["bucket"]}",
+            s3_configs_path="dataset_configs/dev/",
+            dataset_name="{dataset_configs["dataset_name"]}"
         )
             """
 
