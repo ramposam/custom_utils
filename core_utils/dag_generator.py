@@ -6,7 +6,7 @@ from core_utils.config_reader import ConfigReader
 from core_utils.file_utils import write_to_file
 
 
-class DagGenerator():
+class DagGenerator:
 
     def __init__(self, configs_dir, dataset_name):
         self.configs_dir = configs_dir
@@ -140,7 +140,8 @@ with DAG(
 
         """
         Generate Snowflake table DDL from table name and schema.
-
+        :param database: Name of the database
+        :param schema: Name of the schema
         :param table_name: Name of the table
         :param table_schema: Dictionary with column names as keys and data types as values
         :return: DDL string for creating the table
@@ -177,13 +178,13 @@ with DAG(
         table_name, table_schema = dataset_configs["mirror"]["v1"]["table_name"], dataset_configs["mirror"]["v1"][
             "table_schema"]
 
-        mirror_tr_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name, table_schema)
+        mirror_tr_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, f"{table_name}_TR", table_schema)
 
-        write_to_file(mirror_tr_ddls, os.path.join(dag_gen_dir, table_name + ".sql"))
+        write_to_file(mirror_tr_ddls, os.path.join(dag_gen_dir, f"{table_name}_TR.sql"))
 
-        mirror_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name[:-3], table_schema)
+        mirror_ddls = self.generate_mirror_stage_ddls(mirror_db, mirror_schema, table_name, table_schema)
 
-        write_to_file(mirror_ddls, os.path.join(dag_gen_dir, table_name[:-3] + ".sql"))
+        write_to_file(mirror_ddls, os.path.join(dag_gen_dir, table_name + ".sql"))
 
         stage_db, stage_schema = dataset_configs["stage_layer"]["database"], dataset_configs["stage_layer"]["schema"]
         table_name, table_schema = dataset_configs["stage"]["v1"]["table_name"], dataset_configs["stage"]["v1"][

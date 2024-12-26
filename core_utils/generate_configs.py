@@ -24,6 +24,7 @@ class ConfigTemplate():
     def add_meta_cols(self, schema, layer):
         if layer == "MIRROR":
             schema["filename"] = "STRING"
+            schema["file_date"] = "TIMESTAMP"
             schema["file_row_number"] = "STRING"
             schema["file_last_modified"] = "TIMESTAMP"
             schema["created_dts"] = "TIMESTAMP"
@@ -60,15 +61,19 @@ class ConfigTemplate():
         return stage_schema
 
     def generate_configs(self, configs_tmp_dir):
-
+        # Trying to apply schema inference on file data and get delimiter, file schema, data types
         delimiter, columns, data_types = read_and_infer(self.file_path)
 
+        # Trying to identify unique keys by extending each column from the first columns
         unique_keys = get_unique_keys(self.file_path, delimiter, 1)
 
+        # Get the file schema which would be used to verify table and file schema is a match
         file_schema = self.get_file_schema(data_types)
 
-        print(file_schema)
+        # Mirror schema is always string data types with additional file metadata columns
         mirror_schema = self.get_mirror_schema(file_schema)
+
+        # Stage schema is actual data type of each column after schema inferences with additional file metadata columns
         stage_schema = self.get_stage_schema(data_types)
 
         dataset_name = self.dataset_name  # os.path.basename(os.path.dirname(self.file_path))
@@ -76,9 +81,13 @@ class ConfigTemplate():
         configs_root_dir = os.path.join(configs_tmp_dir, "generated_configs")
         Path(configs_root_dir).mkdir(parents=True, exist_ok=True)
 
+        # Creating root dir as generated_configs to store all the generated dataset configs
         configs_dataset_dir = os.path.join(configs_root_dir, dataset_name)
+
+        # create folder as dataset name
         Path(configs_dataset_dir).mkdir(parents=True, exist_ok=True)
 
+        # Generates pipelines either for Snowflake using snowpipe, stream, tasks , no airflow dags, operators
         if self.pipeline_type == "SNOWPIPE":
             file_extension = os.path.basename(self.file_path).split(".")[-1]
 
@@ -98,7 +107,7 @@ class ConfigTemplate():
 
             write_to_file(data=pipeline_sqls, file_path=pipeline_sqls_path)
 
-
+        # Create pipelines using Airflow, DBT, Snowflake
         else:
             dataset_configs_path = os.path.join(configs_dataset_dir, f"{dataset_name}.json")
 
